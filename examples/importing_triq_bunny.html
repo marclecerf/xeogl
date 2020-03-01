@@ -233,8 +233,8 @@
           return { minimum: mn, maximum: mx };
         };
         let res = minAndMax(scalars, (a, b) => a < b);
-        let smin = res.smin;
-        let smax = res.smax;
+        let smin = res.minimum;
+        let smax = res.maximum;
         let cmin = [0., 0., 1., 1.];
         let cmax = [1., 0., 0., 1.];
         let inte = (vmin, vmax, u) => vmin + (vmax - vmin) * u;
