@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+import argparse
+import array
+import sys
+
+import numpy as np
+from stl import mesh
+
+_stream = None
+
+def write_ints(values, outp=False):
+    values = [int(v) for v in values]
+    if outp:
+        print(values)
+    array.array('i', values).tofile(_stream)
+
+def write_floats(values, outp=False):
+    values = [float(v) for v in values]
+    if outp:
+        print(values)
+    array.array('f', values).tofile(_stream)
+
+# Ref: https://www.aerion-tech.com/cart3dv-docs/TRIQ_File_Format.html
+def write_triq(vertices, triangles, scalars):
+    if len(vertices) % 3 != 0:
+        raise ValueError("Each vertex must have 3 coordinates "
+                         + "(len(vertices) = %d)" % len(vertices))
+    number_vertices = len(vertices) / 3
+    if len(triangles) % 3 != 0:
+        raise ValueError("Each triangle must have 3 vertices "
+                         + "(len(triangles) = %d)" % len(triangles))
+    number_triangles = len(triangles) / 3
+    if len(scalars) % number_vertices != 0:
+        raise ValueError("Each vertex must have the same number of scalars "
+                         + "(len(scalars) = %d)" % len(scalars))
+    number_scalars = len(scalars) / number_vertices
+    # Write cube to a multi-zone triq file with just one component
+    component_id = 0
+    write_ints([number_vertices, number_triangles, number_scalars], outp=True)
+    write_floats(vertices)
+    write_ints(triangles)
+    write_ints([component_id] * int(number_triangles))
+    write_floats(scalars)
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser("Write a Plot3D representation of a rectangular prism.")
+    ap.add_argument("--stlfile", help="input filename")
+    ap.add_argument("--trifile", help="output filename")
+    args = ap.parse_args()
+    args.stlfile = "bunny.stl" if args.stlfile is None else args.stlfile
+    args.trifile = "bunny.triq" if args.trifile is None else args.trifile
+    stlmesh = mesh.Mesh.from_file(args.stlfile)
+    vertices = stlmesh.points.flatten(order='C')
+    if (vertices.size % 3) != 0:
+        raise ValueError("Must have 3 coordinates per vertex")
+    number_vertices = int(vertices.size / 3)
+    number_triangles = int(number_vertices / 3)
+    print("Number vertices: %d, Number triangles: %d" % (number_vertices, number_triangles))
+    triangles = np.arange(0, number_vertices, dtype=np.int32)
+    scalars = np.ones((number_vertices,))
+    with open(args.trifile, 'wb') as _stream:
+        write_triq(vertices, triangles, scalars)
+
