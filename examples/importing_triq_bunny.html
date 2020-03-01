@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>xeogl Example</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    <link href="css/styles.css" rel="stylesheet"/>
+
+    <script src="../build/xeogl.js"></script>
+  </head>
+  <body>
+    <script>
+
+      "use strict";
+
+      fetch('bunny.triq')
+      .then((response) => {
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        let triq = readMultiComponentTriq(buffer);
+        let normals = computeNormals(triq);
+        //let triq = exampleModel();
+        //let normals = triq.normals;
+        let colors = computeColors(triq.scalars);
+        var mesh = new xeogl.Mesh({
+            geometry: new xeogl.Geometry({
+                primitive: "triangles",
+                positions: triq.vertices,
+                normals: normals,
+                indices: triq.triangles,
+                colors: colors
+            })
+        });
+
+        var scene = mesh.scene;
+        var camera = scene.camera;
+
+        scene.on("tick", function () {
+            camera.orbitYaw(0.2);
+            camera.orbitPitch(0.1);
+        });
+
+        new xeogl.CameraControl();
+      });
+
+      function exampleModel() {
+        return {
+          // The vertices - eight for our cube, each
+          // one spanning three array elements for X,Y and Z
+          vertices: [
+
+              // v0-v1-v2-v3 front
+              2, 2, 2,
+              -2, 2, 2,
+              -2, -2, 2,
+              2, -2, 2,
+
+              // v0-v3-v4-v1 right
+              2, 2, 2,
+              2, -2, 2,
+              2, -2, -2,
+              2, 2, -2,
+
+              // v0-v1-v6-v1 top
+              2, 2, 2,
+              2, 2, -2,
+              -2, 2, -2,
+              -2, 2, 2,
+
+              // v1-v6-v7-v2 left
+              -2, 2, 2,
+              -2, 2, -2,
+              -2, -2, -2,
+              -2, -2, 2,
+
+              // v7-v4-v3-v2 bottom
+              -2, -2, -2,
+              2, -2, -2,
+              2, -2, 2,
+              -2, -2, 2,
+
+              // v4-v7-v6-v1 back
+              2, -2, -2,
+              -2, -2, -2,
+              -2, 2, -2,
+              2, 2, -2
+          ],
+
+          // Normal vectors, one for each vertex
+          normals: [
+
+              // v0-v1-v2-v3 front
+              0, 0, 1,
+              0, 0, 1,
+              0, 0, 1,
+              0, 0, 1,
+
+              // v0-v3-v4-v5 right
+              1, 0, 0,
+              1, 0, 0,
+              1, 0, 0,
+              1, 0, 0,
+
+              // v0-v5-v6-v1 top
+              0, 1, 0,
+              0, 1, 0,
+              0, 1, 0,
+              0, 1, 0,
+
+              // v1-v6-v7-v2 left
+              -1, 0, 0,
+              -1, 0, 0,
+              -1, 0, 0,
+              -1, 0, 0,
+
+              // v7-v4-v3-v2 bottom
+              0, -1, 0,
+              0, -1, 0,
+              0, -1, 0,
+              0, -1, 0,
+
+              // v4-v7-v6-v5 back
+              0, 0, -1,
+              0, 0, -1,
+              0, 0, -1,
+              0, 0, -1
+          ],
+
+          // Indices - these organise the
+          // vertices and uv texture coordinates
+          // into geometric primitives in accordance
+          // with the "primitive" parameter,
+          // in this case a set of three indices
+          // for each triangle.
+          //
+          // Note that each triangle is specified
+          // in counter-clockwise winding order.
+          //
+          // You can specify them in clockwise
+          // order if you configure the Material
+          // frontface property as "cw", instead
+          // of the default "ccw".
+          triangles: [
+              0, 1, 2,
+              0, 2, 3,
+              // front
+              4, 5, 6,
+              4, 6, 7,
+              // right
+              8, 9, 10,
+              8, 10, 11,
+              // top
+              12, 13, 14,
+              12, 14, 15,
+              // left
+              16, 17, 18,
+              16, 18, 19,
+              // bottom
+              20, 21, 22,
+              20, 22, 23
+          ],
+
+          scalars: [
+            0, 0, 0, 0,
+            1, 1, 1, 1,
+            2, 2, 2, 2,
+            3, 3, 3, 3,
+            4, 4, 4, 4,
+            5, 5, 5, 5,
+          ]
+        };
+      }
+
+      function readMultiComponentTriq(buffer) {
+        let stream = {
+          buffer: buffer,
+          index: 0,
+          readInt32: function () {
+            let value = new DataView(buffer).getInt32(this.index, true);
+            this.index = this.index + 4;
+            return value;
+          },
+          readFloat32: function() {
+            let value = new DataView(buffer).getFloat32(this.index, true);
+            this.index = this.index + 4;
+            return value;
+          }
+        };
+        let numberVertices = stream.readInt32();
+        let numberTriangles = stream.readInt32();
+        let numberScalars = stream.readInt32();
+
+        let vertices = [];
+        let triangles = [];
+        let components = [];
+        let scalars = [];
+
+        for (let ii = 0; ii < numberVertices * 3; ii++) {
+          vertices.push(stream.readFloat32());
+        }
+
+        for (let ii = 0; ii < numberTriangles * 3; ii++) {
+          triangles.push(stream.readInt32());
+        }
+
+        for (let ii = 0; ii < numberTriangles; ii++) {
+          components.push(stream.readInt32());
+        }
+
+        for (let ii = 0; ii < numberVertices; ii++) {
+          scalars.push(stream.readFloat32());
+        }
+
+        return {
+          vertices: vertices,
+          triangles: triangles,
+          components: components,
+          scalars: scalars
+        };
+      }
+
+      function computeColors(scalars) {
+        let minAndMax = function (vec, cmp) {
+          if (vec.length == 0) return null;
+          let mn = vec[0];
+          let mx = vec[0];
+          for (let ii = 1; ii < vec.length; ii++) {
+            mx = cmp(mx, vec[ii]) ? vec[ii] : mx;
+            mn = cmp(vec[ii], mn) ? vec[ii] : mn;
+          }
+          return { minimum: mn, maximum: mx };
+        };
+        let res = minAndMax(scalars, (a, b) => a < b);
+        let smin = res.smin;
+        let smax = res.smax;
+        let cmin = [0., 0., 1., 1.];
+        let cmax = [1., 0., 0., 1.];
+        let inte = (vmin, vmax, u) => vmin + (vmax - vmin) * u;
+        let interpolate = function (s) {
+          let u = (smax - smin) > 0 ? (s - smin) / (smax - smin) : 1;
+          let c = [];
+          for (let ii = 0; ii < 4; ii++) {
+            c.push(inte(cmin[ii], cmax[ii], u));
+          }
+          return c;
+        };
+        let colors = [];
+        scalars.forEach(function(s) {
+          let c = interpolate(s);
+          colors.push(...c); });
+        return colors;
+      }
+
+      // Compute normal for each vertex
+      function computeNormals(triq) {
+        // Normal at each vertex is an equal-weighted average
+        // of normal vector at each face containing the
+        // vertex.
+        let normals = new Array(triq.vertices.length);
+        for (let ii = 0; ii < normals.length; ii++) {
+          normals[ii] = 0;
+        }
+        for (let ii = 0; ii < triq.triangles.length; ii += 3) {
+          let v0 = triq.triangles[ii + 0];
+          let v1 = triq.triangles[ii + 1];
+          let v2 = triq.triangles[ii + 2];
+          let v0x = triq.vertices[v0 * 3 + 0];
+          let v0y = triq.vertices[v0 * 3 + 1];
+          let v0z = triq.vertices[v0 * 3 + 2];
+          let v1x = triq.vertices[v1 * 3 + 0];
+          let v1y = triq.vertices[v1 * 3 + 1];
+          let v1z = triq.vertices[v1 * 3 + 2];
+          let v2x = triq.vertices[v2 * 3 + 0];
+          let v2y = triq.vertices[v2 * 3 + 1];
+          let v2z = triq.vertices[v2 * 3 + 2];
+          let r01x = v1x - v0x;
+          let r01y = v1y - v0y;
+          let r01z = v1z - v0z;
+          let r02x = v2x - v0x;
+          let r02y = v2y - v0y;
+          let r02z = v2z - v0z;
+          // r01 x r02
+          let nx = r01y * r02z - r01z * r02y;
+          let ny = r01z * r02x - r01x * r02z;
+          let nz = r01x * r02y - r01y * r02x;
+          let nmag = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          nx = nx / nmag;
+          ny = ny / nmag;
+          nz = nz / nmag;
+          normals[v0 * 3 + 0] += nx;
+          normals[v0 * 3 + 1] += ny;
+          normals[v0 * 3 + 2] += nz;
+          normals[v1 * 3 + 0] += nx;
+          normals[v1 * 3 + 1] += ny;
+          normals[v1 * 3 + 2] += nz;
+          normals[v2 * 3 + 0] += nx;
+          normals[v2 * 3 + 1] += ny;
+          normals[v2 * 3 + 2] += nz;
+        }
+        for (let ii = 0; ii < normals.length; ii += 3) {
+          let nx = normals[ii + 0];
+          let ny = normals[ii + 1];
+          let nz = normals[ii + 2];
+          let nmag = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          normals[ii + 0] = normals[ii + 0] / nmag;
+          normals[ii + 1] = normals[ii + 1] / nmag;
+          normals[ii + 2] = normals[ii + 2] / nmag;
+        }
+        return normals;
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+import argparse
+import array
+import sys
+
+_stream = None
+
+def write_ints(values):
+    values = [int(v) for v in values]
+    print(values)
+    array.array('i', values).tofile(_stream)
+
+def write_floats(values):
+    values = [float(v) for v in values]
+    print(values)
+    array.array('f', values).tofile(_stream)
+
+def write_rectangular_prism_triq(scale, corner_values):
+    # Within each face, vertices are ordered
+    # according to right-hand rule for vectors
+    # i x j x k
+    x = scale[0]
+    y = scale[1]
+    z = scale[2]
+    ooo = [0, 0, 0]
+    ook = [0, 0, z]
+    ojo = [0, y, 0]
+    ojk = [0, y, z]
+    ioo = [x, 0, 0]
+    iok = [x, 0, z]
+    ijo = [x, y, 0]
+    ijk = [x, y, z]
+    points = [ooo, ioo, ijo, ojo,
+              ook, iok, ijk, ojk]
+    vertices = [x for p in points for x in p]
+    faces = [[0, 1, 2, 3],
+             [4, 5, 6, 7],
+             [0, 1, 5, 4],
+             [1, 2, 6, 5],
+             [2, 3, 7, 6],
+             [3, 0, 4, 7]]
+    triangles = []
+    for v0, v1, v2, v3 in faces:
+        triangles.extend([v0, v1, v2])
+        triangles.extend([v0, v2, v3])
+    scalars = corner_values
+    write_triq(vertices, triangles, scalars)
+
+# Ref: https://www.aerion-tech.com/cart3dv-docs/TRIQ_File_Format.html
+def write_triq(vertices, triangles, scalars):
+    if len(vertices) % 3 != 0:
+        raise ValueError("Each vertex must have 3 coordinates "
+                         + "(len(vertices) = %d)" % len(vertices))
+    number_vertices = len(vertices) / 3
+    if len(triangles) % 3 != 0:
+        raise ValueError("Each triangle must have 3 vertices "
+                         + "(len(triangles) = %d)" % len(triangles))
+    number_triangles = len(triangles) / 3
+    if len(scalars) % number_vertices != 0:
+        raise ValueError("Each vertex must have the same number of scalars "
+                         + "(len(scalars) = %d)" % len(scalars))
+    number_scalars = len(scalars) / number_vertices
+    # Write cube to a multi-zone triq file with just one component
+    component_id = 0
+    write_ints([number_vertices, number_triangles, number_scalars])
+    write_floats(vertices)
+    write_ints(triangles)
+    write_ints([component_id] * int(number_triangles))
+    write_floats(scalars)
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser("Write a Plot3D representation of a rectangular prism.")
+    ap.add_argument("--filename", help="output filename")
+    ap.add_argument("--scale", help="scale in [x, y, z]", nargs=3, type=int)
+    ap.add_argument("--values", help="values at corners " +
+                    "[ooo, xoo, xyo, oyo, ooz, xoz, xyz, oyz]", nargs=8, type=float)
+    args = ap.parse_args()
+    args.filename = "cube.triq" if args.filename is None else args.filename
+    args.scale = [1, 1, 1] if args.scale is None else args.scale
+    args.values = [1, 2, 3, 4, 5, 6, 7, 8] if args.values is None else args.values
+    with open(args.filename, 'wb') as _stream:
+        write_rectangular_prism_triq(args.scale, args.values)
+
