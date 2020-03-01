@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import argparse
+import array
+import sys
+
+_stream = None
+
+def write_ints(values):
+    array.array('i', values).tofile(_stream)
+
+def write_floats(values):
+    array.array('f', values).tofile(_stream)
+
+def write_rectangular_prism_tri(x, y, z):
+    # Cube is defined by its 6 faces and length along
+    # coordinate dimensions (x, y, z).
+
+    # Within each face, vertices are ordered
+    # according to right-hand rule for vectors
+    # i x j x k
+    ooo = [0, 0, 0]
+    ook = [0, 0, z]
+    ojo = [0, y, 0]
+    ojk = [0, y, z]
+    ioo = [x, 0, 0]
+    iok = [x, 0, z]
+    ijo = [x, y, 0]
+    ijk = [x, y, z]
+    points = [ooo, ioo, ijo, ojo,
+              ook, iok, ijk, ojk]
+    faces = [[0, 1, 2, 3],
+             [4, 5, 6, 7],
+             [0, 1, 5, 4],
+             [1, 2, 6, 5],
+             [2, 3, 7, 6],
+             [3, 0, 4, 7]]
+    triangles = []
+    for v0, v1, v2, v3 in faces:
+        triangles.append([v0, v1, v2])
+        triangles.append([v0, v2, v3])
+    # Write cube to a multi-zone tri file with just one zone
+    number_zones = 1
+    write_ints([number_zones])
+    # info for zone 1
+    number_points = len(points)
+    number_triangles = len(triangles)
+    number_tetrahedra = 0
+    write_ints([number_points, number_triangles, number_tetrahedra])
+    x = []
+    y = []
+    z = []
+    for p in points:
+        x.append(p[0])
+        y.append(p[1])
+        z.append(p[2])
+    print(x)
+    print(y)
+    print(z)
+    write_floats(x)
+    write_floats(y)
+    write_floats(z)
+    for t in triangles:
+        write_ints(t)
+    # TODO write out IBLANKS for tris
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser("Write a Plot3D representation of a rectangular prism.")
+    ap.add_argument("filename", help="output filename")
+    ap.add_argument("x", help="length in x direction", type=float)
+    ap.add_argument("y", help="length in y direction", type=float)
+    ap.add_argument("z", help="length in z direction", type=float)
+    args = ap.parse_args()
+    with open(args.filename, 'wb') as _stream:
+        write_rectangular_prism_tri(args.x, args.y, args.z)
+
